@@ -1,4 +1,4 @@
-# AI-MVP1: 이력서 분석 및 채용공고 추천 파이프라인
+# AI-MVP1: 이력서 분석 기반 채용공고 추천
 
 AI 기반 텍스트 처리와 벡터 유사도 검색을 활용한 자동화된 이력서 분석 및 맞춤형 채용공고 추천 시스템입니다.
 
@@ -21,7 +21,7 @@ PDF 이력서를 분석하고 개인화된 채용공고를 추천하는 엔드�
 ```
 PDF 이력서 → 텍스트 추출 → GPT 분석 → 기술/카테고리 추출 → FAISS 검색 → 추천 결과 → CoT 분석 → 데이터베이스 저장
      ↓            ↓           ↓               ↓               ↓           ↓           ↓            ↓
-Azure Blob    PyMuPDF   Azure OpenAI    정규식 파싱      Vector DB     MySQL      GPT-4     영구 저장소
+Azure Blob    PyMuPDF   Azure OpenAI    정규식 파싱      Vector DB     MySQL      GPT-4     MySQL
 ```
 
 ## 기술 스택
