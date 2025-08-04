@@ -1,0 +1,27 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# 환경설정
+.env
+.env.*
+.pdf
+.venv
+
+# IDE 및 OS별 무시 파일
+.vscode/
+.DS_Store
+*.log
+
+# 로컬 테스트/스케줄러 파일
+scripts/
+
+# FAISS 인덱스 파일들
+faiss_indexes/
+*.faiss
+*_ids.json
+embedding.log
+
+/chatbot_env/
+
+.log2
