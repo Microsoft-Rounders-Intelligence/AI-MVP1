@@ -11,6 +11,9 @@ from resume_analysis import (
 from recommend_jobs_from_faiss import search_faiss_job_ids, get_job_details_from_ids
 from store_to_db import insert_to_database
 
+# 프롬프트 모듈 로드
+from prompts import COT_ANALYSIS_PROMPT_TEMPLATE
+
 # 환경 변수 로드
 load_dotenv()
 
@@ -25,26 +28,16 @@ def generate_cot_analysis(user_skills, user_category, job_description, job_title
     """
     GPT를 사용하여 추천 이유를 CoT 방식으로 분석
     """
-    prompt = f"""당신은 채용공고 추천 시스템의 분석가입니다. 다음 정보를 바탕으로 왜 이 채용공고가 추천되었는지 논리적으로 분석해주세요.
+    formatted_skills = ", ".join(user_skills) if user_skills else "정보 없음"
 
-**사용자 정보:**
-- 직무 카테고리: {user_category}
-- 기술 스택: {', '.join(user_skills) if user_skills else '정보 없음'}
-- 검색 쿼리: {search_query}
-
-**추천된 채용공고:**
-- 직무명: {job_title}
-- 유사도 점수: {similarity_score:.3f}
-- 채용공고 내용: {job_description[:1000]}...
-
-**분석 요청사항:**
-1. 유사도 점수가 {similarity_score:.3f}인 이유를 분석해주세요
-2. 사용자의 기술 스택과 채용공고의 요구사항이 어떻게 매칭되는지 설명해주세요
-3. 직무 카테고리의 연관성을 분석해주세요
-4. 최종적으로 이 추천이 적절한지 판단하고 그 근거를 제시해주세요
-
-**출력 형식:**
-간결하고 명확하게 단계별로 분석해주세요. 불필요한 수사나 과장은 피하고 객관적 사실에 기반해 설명해주세요."""
+    prompt = COT_ANALYSIS_PROMPT_TEMPLATE.format(
+        user_category=user_category or "정보 없음",
+        user_skills=formatted_skills,
+        search_query=search_query,
+        job_title=job_title,
+        similarity_score=similarity_score,
+        job_description=job_description[:1000]
+    )
 
     try:
         response = client.chat.completions.create(
@@ -60,7 +53,6 @@ def generate_cot_analysis(user_skills, user_category, job_description, job_title
 
     except Exception as e:
         return f"GPT 분석 생성 중 오류 발생: {str(e)}"
-
 
 
 def run_pipeline(user_id, pdf_path):
