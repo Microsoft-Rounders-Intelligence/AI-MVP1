@@ -103,6 +103,22 @@ def generate_query_from_report(report_text: str) -> Tuple[str, list, str]:
     return gpt_query, skills, category
 
 
+def parse_resume_sections(report: str) -> Tuple[str, str, str]:
+    """
+    GPT 이력서 평가 리포트에서 강점, 약점, 개선점을 파싱한다.
+    """
+    # 구분자 기준으로 파싱
+    strength_match = re.search(r"1\.\s*강점\s*[\:\-\n]?(.*?)\n\s*2\.", report, re.DOTALL)
+    weakness_match = re.search(r"2\.\s*약점\s*[\:\-\n]?(.*?)\n\s*3\.", report, re.DOTALL)
+    improvement_match = re.search(r"3\.\s*개선점\s*[\:\-\n]?(.*?)\n\s*4\.", report, re.DOTALL)
+
+    strength = strength_match.group(1).strip() if strength_match else None
+    weakness = weakness_match.group(1).strip() if weakness_match else None
+    improvement = improvement_match.group(1).strip() if improvement_match else None
+
+    return strength, weakness, improvement
+
+
 # 테스트용 예시 실행
 if __name__ == "__main__":
     pdf_path = "resume.pdf"

@@ -14,7 +14,7 @@ from store_to_db import insert_to_database
 # 환경 변수 로드
 load_dotenv()
 
-# Azure OpenAI 클라이언트 설정 (🔁 .env 기준 반영)
+# Azure OpenAI 클라이언트 설정
 client = AzureOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     api_version="2024-02-15-preview",
@@ -22,9 +22,6 @@ client = AzureOpenAI(
 )
 
 def generate_cot_analysis(user_skills, user_category, job_description, job_title, similarity_score, search_query):
-    """
-    GPT를 사용하여 추천 이유를 CoT 방식으로 분석
-    """
     prompt = f"""당신은 채용공고 추천 시스템의 분석가입니다. 다음 정보를 바탕으로 왜 이 채용공고가 추천되었는지 논리적으로 분석해주세요.
 
 **사용자 정보:**
@@ -45,7 +42,7 @@ def generate_cot_analysis(user_skills, user_category, job_description, job_title
 
 **출력 형식:**
 간결하고 명확하게 단계별로 분석해주세요. 불필요한 수사나 과장은 피하고 객관적 사실에 기반해 설명해주세요."""
-
+    
     try:
         response = client.chat.completions.create(
             model=os.getenv("OPENAI_DEPLOYMENT", "gpt-4"),
@@ -60,8 +57,6 @@ def generate_cot_analysis(user_skills, user_category, job_description, job_title
 
     except Exception as e:
         return f"GPT 분석 생성 중 오류 발생: {str(e)}"
-
-
 
 def run_pipeline(user_id, pdf_path):
     print("\n이력서 자동 분석 파이프라인 시작\n")
@@ -89,27 +84,20 @@ def run_pipeline(user_id, pdf_path):
     print(f"  추출된 기술 스택: {skills}")
     print(f"  추정 직무 카테고리: {category}")
 
-    # generate_query_from_report가 list를 반환할 경우 대비
     query_raw = generate_query_from_report(summary)
-
-    if isinstance(query_raw, list):
-        query = ' '.join(str(q) for q in query_raw).strip()
-    else:
-        query = str(query_raw).strip()
-
+    query = ' '.join(query_raw) if isinstance(query_raw, list) else str(query_raw).strip()
     print(f"  검색 쿼리 생성: '{query}'")
 
     # 5. FAISS 채용공고 추천
     print("\n[5] FAISS 채용공고 추천 시작...")
-
-    # FAISS 검색 API 호출 → similarity_score 포함된 리스트 반환
-    job_id_results = search_faiss_job_ids(query)  # → List[Dict] 형태: [{"job_id": ..., "similarity_score": ...}, ...]
-
-    # job_id만 추출
+    job_id_results = search_faiss_job_ids(query)
     job_ids = [job["job_id"] for job in job_id_results]
-
-    # RDB에서 상세 정보 조회
     recommendations = get_job_details_from_ids(job_ids)
+
+    # 🔥 score 병합
+    for job in recommendations:
+        matched = next((j for j in job_id_results if j["job_id"] == job["job_id"]), {})
+        job["similarity_score"] = matched.get("similarity_score", 0.0)
     print(f"  추천된 채용공고 수: {len(recommendations)}")
 
     # 추천 내용 출력
@@ -129,21 +117,20 @@ def run_pipeline(user_id, pdf_path):
         elif job_id_results and not recommendations:
             print("  → FAISS는 job_id를 반환했지만 DB에서 해당 공고를 찾지 못했습니다.")
 
-
-    # CoT 추천 이유 상세 분석
+    # 6. CoT 분석 결과 수집
+    cot_analyses = []
     if recommendations:
         print("\n" + "="*80)
         print("추천 이유 상세 분석 (GPT Chain of Thought)")
         print("="*80)
-        
+
         for i, job in enumerate(recommendations, 1):
             matched = next((j for j in job_id_results if j["job_id"] == job["job_id"]), {})
             score = matched.get("similarity_score", 0.0)
-            
+
             print(f"\n[추천 #{i}] {job['position_title']}")
             print("-" * 50)
-            
-            # GPT CoT 분석 생성
+
             cot_analysis = generate_cot_analysis(
                 user_skills=skills,
                 user_category=category,
@@ -152,20 +139,28 @@ def run_pipeline(user_id, pdf_path):
                 similarity_score=score,
                 search_query=query
             )
-            
             print(cot_analysis)
-            
-            if i < len(recommendations):  # 마지막이 아니면 구분선
+            cot_analyses.append(cot_analysis)
+
+            if i < len(recommendations):
                 print("\n" + "="*80)
 
-    # 6. 결과 DB 저장
+    # 7. DB 저장
     print("\n[6] DB에 결과 저장 중...")
-    resume_id = insert_to_database(user_id, blob_url, summary, skills, category, recommendations)
+    resume_id = insert_to_database(
+        user_id=user_id,
+        blob_url=blob_url,
+        summary=summary,
+        skills=skills,
+        category=category,
+        job_recommendations=recommendations,
+        search_query=query,
+        cot_analyses=cot_analyses  # ✅ CoT 분석 결과 추가
+    )
     print(f"  저장 완료. Resume ID: {resume_id}")
 
     print("\n전체 파이프라인 완료")
     return resume_id
-
 
 if __name__ == "__main__":
     import argparse
