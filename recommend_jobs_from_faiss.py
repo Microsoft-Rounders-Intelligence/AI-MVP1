@@ -26,17 +26,6 @@ DB_CONFIG = {
 logging.basicConfig(filename='faiss_failed_queries.log', level=logging.WARNING, encoding='utf-8')
 
 
-def extract_skills_and_category(report_text: str):
-    """
-    GPT 평가 결과에서 기술 스택 및 직무 카테고리를 추출
-    """
-    skills_match = re.findall(r"(?:기술\s*스택|기술\s*목록)[^\n]*:\s*(.*)", report_text)
-    category_match = re.findall(r"(?:직무\s*카테고리|직무\s*분류|직무\s*유형)[^\n]*:\s*(.*)", report_text)
-
-    skills = [s.strip() for s in re.split(r"[,\•·]", skills_match[0])] if skills_match else []
-    category = category_match[0].strip() if category_match else None
-    return skills, category
-
 
 def search_faiss_job_ids(query: str, top_k: int = 3):
     """
